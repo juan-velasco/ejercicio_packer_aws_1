@@ -1,0 +1,185 @@
+-
+    name: Install list of packages (PHP, Supervisor, Nginx,...)
+    hosts: curso
+    become: yes
+    tasks:
+        - name: Install required packages (curl, git, supervisor,...)
+          apt:
+              name:  ['curl',
+                      'git',
+                      'supervisor',
+                      'unzip'
+              ]
+              state: present
+              update_cache: yes
+        - name: Install MySQL
+          apt:
+              name:  ['mysql-server',
+                      'python3-pymysql',
+              ]
+              state: present
+              update_cache: yes
+        - name: Install Nginx
+          apt:
+              name:  ['nginx',
+              ]
+              state: present
+              update_cache: yes
+        - name: Install PHP
+          apt:
+              name:  ['php8.1',
+                      'php8.1-common',
+                      'php8.1-gd',
+                      'php8.1-zip',
+                      'php8.1-bz2',
+                      'php8.1-cli',
+                      'php8.1-curl',
+                      'php8.1-dev',
+                      'php8.1-fpm',
+                      'php8.1-intl',
+                      'php8.1-ldap',
+                      'php8.1-mbstring',
+                      'php8.1-mysql',
+                      'php8.1-odbc',
+                      'php8.1-opcache',
+                      'php8.1-readline',
+                      'php8.1-sqlite3',
+                      'php8.1-xml',
+              ]
+              state: present
+              update_cache: yes
+-
+    name: Install Composer
+    hosts: curso
+    become: yes
+    tasks:
+        - name: Download installer
+          shell: php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+        - name: Install
+          shell: php composer-setup.php --install-dir /usr/local/bin --filename composer
+        - name: Delete installer file
+          shell: php -r "unlink('composer-setup.php');"
+
+-
+    name: Configure MySQL
+    hosts: curso
+    become: yes
+    ignore_errors: yes # una vez cambiado el password fallará la ejecución
+    tasks:
+      - name: Sets the root password
+        mysql_user:
+          name: root
+          password: "{{ mysql_root_password }}"
+          login_unix_socket: /var/run/mysqld/mysqld.sock
+          state: present
+          login_host: 'localhost'
+          login_user: 'root'
+          login_password: ''
+      - name: Removes all anonymous user accounts
+        mysql_user:
+          name: ''
+          host_all: yes
+          state: absent
+          login_user: root
+          login_password: "{{ mysql_root_password }}"
+
+      - name: Removes the MySQL test database
+        mysql_db:
+          name: test
+          state: absent
+          login_user: root
+          login_password: "{{ mysql_root_password }}"
+-
+  name: Configure php.ini
+  hosts: curso
+  become: yes
+  tasks:
+    - name: Set post_max_size
+      ansible.builtin.lineinfile:
+        path: /etc/php/8.1/fpm/php.ini
+        regexp: "post_max_size ="
+        line: post_max_size = 25M
+    - name: Set upload_max_filesize
+      ansible.builtin.lineinfile:
+        path: /etc/php/8.1/fpm/php.ini
+        regexp: "upload_max_filesize ="
+        line: upload_max_filesize = 25M
+-
+    name: Configure Nginx
+    hosts: curso
+    become: yes
+    tasks:
+        - name: Copy nginx.conf
+          copy:
+            src: '{{ playbook_dir }}/nginx/nginx.conf'
+            dest: /etc/nginx/
+        - name: Copy site config
+          copy:
+              src: '{{ playbook_dir }}/nginx/my-site.com'
+              dest: /etc/nginx/sites-available
+        - name: Enable the site
+          file:
+            src: /etc/nginx/sites-available/my-site.com
+            dest: /etc/nginx/sites-enabled/my-site.com
+            state: link
+        - name: Restart Nginx
+          service:
+            name: nginx
+            state: restarted
+-
+  name: Ensure app dir is present and empty
+  hosts: curso
+  become: yes
+  tasks:
+    - name: Ensure app dir is empty
+      ansible.builtin.file:
+        path: /srv/my_site
+        state: absent
+    - name: Ensure app dir is present
+      ansible.builtin.file:
+        path: /srv/my_site
+        state: directory
+        mode: '0777'        
+        owner: "ubuntu"
+        group: "ubuntu"
+-
+  name: Add  user to www-data group
+  hosts: curso
+  become: yes
+  tasks:
+    - name: Add user to www-data group
+      user:
+        name: "{{ admin_user }}"
+        groups: www-data
+        append: yes
+
+-
+  name: Deploy App code
+  hosts: curso
+  become: no
+  tasks:
+    - name: Create project using Composer      
+      shell: /usr/local/bin/composer create-project symfony/symfony-demo my_site --no-interaction
+      args:
+        chdir: /srv
+-
+  name: Create logs directory
+  hosts: curso
+  become: yes
+  tasks:
+    - name: Ensures /srv/my_site/var/log dir exists
+      file:
+        path: /srv/my_site/var/log
+        state: directory
+        mode: '0777'
+        owner: "{{ admin_user }}"
+        group: "{{ admin_user }}"
+-
+  name: Restart PHP-FPM to apply changes
+  hosts: curso
+  become: yes
+  tasks:
+    - name: Restart PHP-FPM
+      ansible.builtin.service:
+        name: php8.1-fpm
+        state: restarted        
