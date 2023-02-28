@@ -1,13 +1,12 @@
 -
-    name: Install list of packages (PHP, Supervisor, Nginx,...)
+    name: Install list of packages (PHP, Nginx,...)
     hosts: curso
     become: yes
     tasks:
-        - name: Install required packages (curl, git, supervisor,...)
+        - name: Install required packages (curl, git,...)
           apt:
               name:  ['curl',
                       'git',
-                      'supervisor',
                       'unzip'
               ]
               state: present

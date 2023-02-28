@@ -36,9 +36,14 @@ build {
     provisioner "ansible" {    
       playbook_file = "provisioners/ansible/instalar_aplicacion.yml"
       groups = ["curso"]
+      ansible_env_vars = [
+        "ANSIBLE_SSH_ARGS='-oHostKeyAlgorithms=+ssh-rsa -oPubkeyAcceptedKeyTypes=ssh-rsa'",
+        "ANSIBLE_HOST_KEY_CHECKING=False"
+      ]
       extra_arguments = [
           "--extra-vars",
-          "mysql_root_password=1q2w3e4r5t6y admin_user=www-data"
+          "mysql_root_password=1q2w3e4r5t6y admin_user=www-data",
+          "--scp-extra-args", "'-O'"
       ]
     }
 }
