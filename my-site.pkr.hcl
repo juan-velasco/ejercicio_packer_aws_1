@@ -8,7 +8,7 @@ packer {
 }
 
 source "amazon-ebs" "ubuntu" {
-  profile = "juanvelascoaws"
+  profile = "default"
   ami_name      = "app-symfony-packer-aws-{{timestamp}}"
   instance_type = "t3.small"
   region        = "eu-west-3"
